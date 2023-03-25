@@ -24,21 +24,33 @@ public class Player : MonoBehaviour
 
     public bool bMoving;
 
+    public bool bBlocking;
+
     Quaternion ForwardRot = Quaternion.Euler(0,90,0);
     Quaternion BackwardsRot = Quaternion.Euler(0, -90, 0);
 
     public float StartAimingEaseAmount = 5.0f;
     int m_AttackAnimLayerIndex;
+    int m_BlockAnimLayerIndex;
     float m_AimAnimLayerWeight;
 
     float AttackTimer = 2.0f;
-    bool bAttacking;
+    public bool bAttacking;
     bool bSprinting;
+
+    float StartingZ;
+
+    Vector3 XPosLock;
+
+    public GameObject CurrentEnemy;
 
     void Start()
     {
         PlayerAniamtor = transform.GetChild(0).GetComponent<Animator>();
         m_AttackAnimLayerIndex = PlayerAniamtor.GetLayerIndex("AttackingLayer");
+        m_BlockAnimLayerIndex = PlayerAniamtor.GetLayerIndex("BlockingLayer");
+        StartingZ = transform.position.z;
+
     }
 
     // Update is called once per frame
@@ -47,11 +59,13 @@ public class Player : MonoBehaviour
         ResetAttack();
         HandleMovement();
         CheckForAttack();
+        CheckForBlock();
+        SideScrollerLock();
     }
 
     private void ResetAttack()
     {
-        if(AttackTimer >= 1.1f && bAttacking)
+        if(AttackTimer >= 0.8f && bAttacking)
         {
             m_AimAnimLayerWeight = 0.0f;
             PlayerAniamtor.SetLayerWeight(m_AttackAnimLayerIndex, m_AimAnimLayerWeight);
@@ -60,6 +74,15 @@ public class Player : MonoBehaviour
             PlayerAniamtor.SetBool("Attacking", bAttacking);
             PlayerAniamtor.SetBool("StandAttacking", bAttacking);
 
+        }
+        else if(AttackTimer >= 0.55f && bBlocking)
+        {
+            m_AimAnimLayerWeight = 0.0f;
+            PlayerAniamtor.SetLayerWeight(m_BlockAnimLayerIndex, m_AimAnimLayerWeight);
+            AttackTimer = 0.0f;
+            bBlocking = false;
+            PlayerAniamtor.SetBool("Blocking", bBlocking);
+            PlayerAniamtor.SetBool("StandBlocking", bBlocking);
         }
         else
         {
@@ -82,6 +105,8 @@ public class Player : MonoBehaviour
 
             PlayerAniamtor.SetFloat("ForwardSpeed", Animspeed);
             bMoving = true;
+
+
         }
         else if (Input.GetKey(KeyCode.A))
         {
@@ -89,6 +114,11 @@ public class Player : MonoBehaviour
             PlayerAniamtor.SetFloat("ForwardSpeed", -1.0f);
 
             bMoving = true;
+
+            if (Input.GetKeyDown(KeyCode.Space))
+            {
+                transform.Translate(new Vector3((-BackPeddleSpeed * 50) * Time.deltaTime, 0, 0), Space.World);
+            }
         }
         else
         {
@@ -134,7 +164,7 @@ public class Player : MonoBehaviour
 
     void CheckForAttack()
     {
-        if(Input.GetKey(KeyCode.Mouse0) && bAttacking == false)
+        if(Input.GetKey(KeyCode.Mouse0) && bAttacking == false && bBlocking == false)
         {
             bAttacking = true;
             
@@ -153,4 +183,41 @@ public class Player : MonoBehaviour
             AttackTimer = 0.0f;
         }
     }
+
+    void CheckForBlock()
+    {
+        if (Input.GetKeyDown(KeyCode.Mouse1) && bBlocking == false && bAttacking == false)
+        {
+            bBlocking = true;
+
+            if (Speed != 0.0f || PlayerAniamtor.GetFloat("ForwardSpeed") == -1.0f)
+            {
+                m_AimAnimLayerWeight = 1.0f;
+                PlayerAniamtor.SetLayerWeight(m_BlockAnimLayerIndex, m_AimAnimLayerWeight);
+            }
+            else
+            {
+                PlayerAniamtor.SetBool("StandBlocking", bBlocking);
+
+            }
+
+            PlayerAniamtor.SetBool("Blocking", bBlocking);
+            AttackTimer = 0.0f;
+
+            if(CurrentEnemy!= null) 
+            {
+                if(CurrentEnemy.GetComponent<BasicAi>().AttackFrameCounter > 65 && CurrentEnemy.GetComponent<BasicAi>().AttackFrameCounter < 90)
+                {
+                    Debug.Log("Sucessful Block");
+                }
+            }
+        }
+    }
+
+    private void SideScrollerLock()
+    {
+        XPosLock = new Vector3(transform.position.x, transform.position.y, StartingZ);
+        transform.position = XPosLock;
+    }
 }
+
